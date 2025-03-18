@@ -1,0 +1,26 @@
+import express from 'express';
+import { authenticate, isSeller } from '../middleware/authMiddleware.js';
+import LiveStream from '../models/Livestream.js';
+
+const router = express.Router();
+
+// @route   POST /api/livestream/start
+// @desc    Sellers can start a live stream
+// @access  Private (Only Sellers)
+router.post('/start', authenticate, isSeller, async (req, res) => {
+    try {
+        const { title } = req.body;
+
+        const liveStream = await LiveStream.create({
+            title,
+            streamKey: Math.random().toString(36).substring(2, 15), // Generate a unique stream key
+            sellerId: req.user.id
+        });
+
+        res.json({ message: 'Live stream started', liveStream });
+    } catch (error) {
+        res.status(500).json({ message: 'Server error', error: error.message });
+    }
+});
+
+export default router;
