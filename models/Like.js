@@ -1,24 +1,6 @@
 import { DataTypes } from 'sequelize';
 import sequelize from '../config/db.js';
 
-const Comment = sequelize.define('Comment', {
-    text: {
-        type: DataTypes.TEXT,
-        allowNull: false,
-    },
-    userId: {
-        type: DataTypes.UUID,
-        allowNull: false,
-    },
-    postId: {
-        type: DataTypes.INTEGER, // For posts (optional)
-        allowNull: true,
-    },
-    streamId: {
-        type: DataTypes.INTEGER, // For live streams (optional)
-        allowNull: true,
-    }
-});
 
 const Like = sequelize.define('Like', {
     type: {
@@ -30,11 +12,11 @@ const Like = sequelize.define('Like', {
         allowNull: false,
     },
     postId: {
-        type: DataTypes.INTEGER, // For posts (optional)
+        type: DataTypes.UUID, // For posts (optional)
         allowNull: true,
     },
     streamId: {
-        type: DataTypes.INTEGER, // For live streams (optional)
+        type: DataTypes.UUID, // For live streams (optional)
         allowNull: true,
     }
 });

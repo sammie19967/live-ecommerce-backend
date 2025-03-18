@@ -39,7 +39,7 @@ app.get('/', (req, res) => {
 
 // Sync Database
 (async () => {
-    await sequelize.sync({ force: true }); // This ensures tables match models
+    await sequelize.sync({ alter: true }); // This ensures tables match models
     console.log("✅ Database Synced!");
 })();
 
