@@ -1,6 +1,7 @@
 import Comment from '../models/Comment.js';
 import LiveStream from '../models/Livestream.js';
 import User from '../models/User.js';
+import Post from '../models/Post.js';
 
 // Create a new comment
 export const addComment = async (req, res) => {
@@ -46,6 +47,25 @@ export const getComments = async (req, res) => {
         return res.status(500).json({ message: 'Server error', error: error.message });
     }
 };
+
+// Get all comments (Optional: Filter by post ID)
+export const getCommentsByPostId = async (req, res) => {
+    try {
+        const { postId } = req.query; // Optional query parameter
+        const whereClause = postId ? { postId } : {};
+
+        const comments = await Comment.findAll({
+            where: whereClause,
+            include: [{ model: User, attributes: ['id', 'username'] }] // Include user details
+        });
+
+        return res.json(comments);
+    } catch (error) {
+        console.error(error);
+        return res.status(500).json({ message: 'Server error', error: error.message });
+    }
+};
+
 
 // Get a single comment by ID
 export const getCommentById = async (req, res) => {

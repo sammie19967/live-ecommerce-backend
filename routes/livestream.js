@@ -23,4 +23,28 @@ router.post('/start', authenticate, isSeller, async (req, res) => {
     }
 });
 
+// @route   POST /api/livestream/end/:id
+// @desc    Sellers can end a live stream
+// @access  Private (Only Sellers)
+router.post('/end/:id', authenticate, isSeller, async (req, res) => {
+    try {
+        const { id } = req.params;
+
+        // Find the live stream by ID
+        const liveStream = await LiveStream.findOne({ where: { id, sellerId: req.user.id } });
+
+        if (!liveStream) {
+            return res.status(404).json({ message: 'Live stream not found' });
+        }
+
+        // Update the isActive field to false
+        liveStream.isActive = false;
+        await liveStream.save();
+
+        res.json({ message: 'Live stream ended', liveStream });
+    } catch (error) {
+        res.status(500).json({ message: 'Server error', error: error.message });
+    }
+});
+
 export default router;

@@ -11,11 +11,7 @@ import productRoutes from './routes/products.js';
 import liveStreamRoutes from './routes/livestream.js';
 import commentRoutes from './routes/comments.js';
 import likeRoutes from './routes/likes.js';
-
-
-import User from './models/User.js';
-import Product from './models/Product.js';
-import Livestream from './models/Livestream.js';
+import Post from './routes/post.js';
 
 dotenv.config();
 
@@ -31,6 +27,7 @@ app.use('/api/products', productRoutes);
 app.use('/api/livestream', liveStreamRoutes);
 app.use('/api/comments', commentRoutes);
 app.use('/api/likes', likeRoutes);
+app.use('/api/posts', Post);        
 
 // Test Route
 app.get('/', (req, res) => {
@@ -39,7 +36,7 @@ app.get('/', (req, res) => {
 
 // Sync Database
 (async () => {
-    await sequelize.sync({ alter: true }); // This ensures tables match models
+    await sequelize.sync({ force: true }); // This ensures tables match models
     console.log("✅ Database Synced!");
 })();
 

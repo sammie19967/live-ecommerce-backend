@@ -2,6 +2,7 @@ import { DataTypes } from 'sequelize';
 import sequelize from '../config/db.js';
 import User from './User.js';
 import LiveStream from './Livestream.js';
+import Post from './Post.js';
 
 const Comment = sequelize.define('Comment', {
     id: {
@@ -24,6 +25,10 @@ const Comment = sequelize.define('Comment', {
     postId: {
         type: DataTypes.UUID, // Use UUID for postId
         allowNull: true,
+        references: {
+            model: Post,
+            key: 'id'
+        }
     },
     streamId: {
         type: DataTypes.UUID, // Use UUID for streamId
