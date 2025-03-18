@@ -32,7 +32,7 @@ const Comment = sequelize.define('Comment', {
     },
     streamId: {
         type: DataTypes.UUID, // Use UUID for streamId
-        allowNull: false,
+        allowNull: true,
         references: {
             model: LiveStream,
             key: 'id'
@@ -55,5 +55,6 @@ const Comment = sequelize.define('Comment', {
 
 Comment.belongsTo(User, { foreignKey: 'userId', onDelete: 'CASCADE' });
 Comment.belongsTo(LiveStream, { foreignKey: 'streamId', onDelete: 'CASCADE' });
+Comment.belongsTo(Post, { foreignKey: 'postId', onDelete: 'CASCADE' });
 
 export default Comment;

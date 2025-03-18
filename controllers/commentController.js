@@ -6,21 +6,37 @@ import Post from '../models/Post.js';
 // Create a new comment
 export const addComment = async (req, res) => {
     try {
-        const { streamId, text } = req.body;
+        const { streamId, postId, text } = req.body;
         const userId = req.user.id; // Assuming user authentication is set up
 
+        if (!streamId && !postId) {
+            return res.status(400).json({ message: 'A streamId or postId is required.' });
+        }
 
-        // Check if the livestream exists and is active
-        const stream = await LiveStream.findOne({ where: { id: streamId, isActive: true } });
-        if (!stream) {
-            return res.status(400).json({ message: 'This livestream is not active or does not exist.' });
+        // Validate that either the livestream or the post exists
+        let stream = null;
+        let post = null;
+
+        if (streamId) {
+            stream = await LiveStream.findOne({ where: { id: streamId, isActive: true } });
+            if (!stream) {
+                return res.status(400).json({ message: 'This livestream is not active or does not exist.' });
+            }
+        }
+
+        if (postId) {
+            post = await Post.findOne({ where: { id: postId } });
+            if (!post) {
+                return res.status(400).json({ message: 'This post does not exist.' });
+            }
         }
 
         // Create the comment
         const comment = await Comment.create({
             text,
             userId,
-            streamId
+            streamId: streamId || null,
+            postId: postId || null
         });
 
         return res.status(201).json({ message: 'Comment added', comment });
@@ -29,6 +45,7 @@ export const addComment = async (req, res) => {
         return res.status(500).json({ message: 'Server error', error: error.message });
     }
 };
+
 
 // Get all comments (Optional: Filter by stream ID)
 export const getComments = async (req, res) => {
