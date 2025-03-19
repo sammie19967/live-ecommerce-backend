@@ -6,6 +6,8 @@ import { Server as SocketIOServer } from 'socket.io';
 import { ExpressPeerServer } from 'peer';
 import sequelize from './config/db.js';
 import Message from './models/Message.js'; // ✅ Import Message model
+import multer from 'multer';
+import path from 'path';
 
 // Import routes
 import authRoutes from './routes/auth.js';
@@ -26,6 +28,26 @@ app.use(cors({
     origin: 'http://localhost:5173', // ✅ Fixed incorrect origin
     credentials: true // ✅ Allow cookies/sessions
 }));
+
+// Configure Multer storage
+const storage = multer.diskStorage({
+    destination: (req, file, cb) => {
+        cb(null, 'uploads/');
+    },
+    filename: (req, file, cb) => {
+        cb(null, Date.now() + path.extname(file.originalname));
+    }
+});
+
+const upload = multer({ storage });
+
+// API Route for File Uploads
+app.post('/api/upload', upload.single('file'), (req, res) => {
+    if (!req.file) {
+        return res.status(400).json({ message: "No file uploaded" });
+    }
+    res.json({ fileUrl: `/uploads/${req.file.filename}` });
+});
 
 // Routes
 app.use('/api/auth', authRoutes);
@@ -77,7 +99,6 @@ io.on('connection', (socket) => {
     // Handle sending a private message
     socket.on('sendMessage', async ({ senderId, receiverId, message, messageType, mediaUrl }) => {
         try {
-            // Save message to database
             const newMessage = await Message.create({
                 senderId,
                 receiverId,
@@ -85,8 +106,7 @@ io.on('connection', (socket) => {
                 messageType,
                 mediaUrl
             });
-
-            // Emit message to the correct user
+    
             if (users[receiverId]) {
                 io.to(users[receiverId]).emit('receiveMessage', newMessage);
             }
@@ -94,6 +114,7 @@ io.on('connection', (socket) => {
             console.error("Error sending message:", error);
         }
     });
+    
 
     // Handle user disconnect
     socket.on('disconnect', () => {
