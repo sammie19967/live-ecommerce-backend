@@ -1,6 +1,6 @@
 import { DataTypes } from 'sequelize';
 import sequelize from '../config/db.js';
-import User from './User.js';
+
 
 const Post = sequelize.define('Post', {
     id: {
@@ -17,17 +17,19 @@ const Post = sequelize.define('Post', {
         allowNull: true
     },
     imageUrl: {
-        type: DataTypes.STRING, // Stores image URL (uploaded to a server or cloud)
+        type: DataTypes.STRING,
         allowNull: true
     },
     videoUrl: {
-        type: DataTypes.STRING, // Stores video URL
+        type: DataTypes.STRING,
         allowNull: true
     }
 }, {
     timestamps: true
 });
 
-Post.belongsTo(User, { foreignKey: 'sellerId' });
+
+
+
 
 export default Post;

@@ -8,6 +8,7 @@ import sequelize from './config/db.js';
 import Message from './models/Message.js'; // ✅ Import Message model
 import multer from 'multer';
 import path from 'path';
+import './models/associations.js'; 
 
 // Import routes
 import authRoutes from './routes/auth.js';
@@ -17,6 +18,7 @@ import commentRoutes from './routes/comments.js';
 import likeRoutes from './routes/likes.js';
 import postRoutes from './routes/post.js';
 import messageRoutes from './routes/messages.js';
+import './models/associations.js'; 
 
 dotenv.config();
 

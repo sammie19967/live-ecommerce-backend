@@ -4,26 +4,30 @@ import User from '../models/User.js';
 export const createPost = async (req, res) => {
     try {
         const { text, imageUrl, videoUrl } = req.body;
-        const userId = req.user.id; // Assuming authentication
+        const userId = req.user.id;
 
-        // Find the user to get their username
-        const user = await User.findByPk(userId);
-        if (!user) return res.status(404).json({ message: 'User not found' });
-
-        // Create post
         const post = await Post.create({ text, imageUrl, videoUrl, userId });
+
+        // Fetch post with user details using the correct alias
+        const newPost = await Post.findByPk(post.id, {
+            include: { 
+                model: User, 
+                as: 'User',  // ✅ Match alias
+                attributes: ['id', 'username']
+            }
+        });
 
         return res.status(201).json({
             message: 'Post created successfully',
             post: {
-                id: post.id,
-                text: post.text,
-                imageUrl: post.imageUrl,
-                videoUrl: post.videoUrl,
-                createdAt: post.createdAt,
+                id: newPost.id,
+                text: newPost.text,
+                imageUrl: newPost.imageUrl,
+                videoUrl: newPost.videoUrl,
+                createdAt: newPost.createdAt,
                 user: {
-                    id: user.id,
-                    username: user.username,
+                    id: newPost.User.id, // ✅ Ensure alias is capitalized
+                    username: newPost.User.username
                 }
             }
         });
@@ -32,10 +36,16 @@ export const createPost = async (req, res) => {
     }
 };
 
+
+
 export const getPosts = async (req, res) => {
     try {
         const posts = await Post.findAll({
-            include: { model: User, attributes: ['id', 'username'] }
+            include: { 
+                model: User, 
+                as: 'User',  // ✅ Capital "User" (MUST match association)
+                attributes: ['id', 'username'] 
+            }
         });
 
         const formattedPosts = posts.map(post => ({
@@ -45,8 +55,8 @@ export const getPosts = async (req, res) => {
             videoUrl: post.videoUrl,
             createdAt: post.createdAt,
             user: {
-                id: post.User.id,
-                username: post.User.username,
+                id: post.User.id, // ✅ Use correct alias (capital "User")
+                username: post.User.username
             }
         }));
 
@@ -55,6 +65,8 @@ export const getPosts = async (req, res) => {
         return res.status(500).json({ message: 'Server error', error: error.message });
     }
 };
+
+
 
 export const getPostById = async (req, res) => {
     try {
