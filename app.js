@@ -5,10 +5,11 @@ import http from 'http';
 import { Server as SocketIOServer } from 'socket.io';
 import { ExpressPeerServer } from 'peer';
 import sequelize from './config/db.js';
-import Message from './models/Message.js'; // ✅ Import Message model
+import Message from './models/Message.js';
 import multer from 'multer';
 import path from 'path';
-import './models/associations.js'; 
+import fs from 'fs';
+
 
 // Import routes
 import authRoutes from './routes/auth.js';
@@ -18,7 +19,7 @@ import commentRoutes from './routes/comments.js';
 import likeRoutes from './routes/likes.js';
 import postRoutes from './routes/post.js';
 import messageRoutes from './routes/messages.js';
-import './models/associations.js'; 
+import './models/associations.js';
 
 dotenv.config();
 
@@ -26,15 +27,19 @@ const app = express();
 
 // Middleware
 app.use(express.json());
-app.use(cors({ 
-    origin: 'http://localhost:5173', // ✅ Fixed incorrect origin
-    credentials: true // ✅ Allow cookies/sessions
+app.use(cors({
+    origin: 'http://localhost:5173',
+    credentials: true
 }));
-app.use(express.json()); // ✅ REQUIRED to parse JSON requests
-app.use(express.urlencoded({ extended: true })); // ✅ Helps with form data
+app.use(express.urlencoded({ extended: true }));
 
+// ✅ Ensure "uploads" directory exists
+const uploadDir = 'uploads';
+if (!fs.existsSync(uploadDir)) {
+    fs.mkdirSync(uploadDir);
+}
 
-// Configure Multer storage
+// ✅ Configure Multer storage
 const storage = multer.diskStorage({
     destination: (req, file, cb) => {
         cb(null, 'uploads/');
@@ -44,14 +49,34 @@ const storage = multer.diskStorage({
     }
 });
 
-const upload = multer({ storage });
-
-// API Route for File Uploads
-app.post('/api/upload', upload.single('file'), (req, res) => {
-    if (!req.file) {
-        return res.status(400).json({ message: "No file uploaded" });
+// ✅ Restrict allowed file types
+const fileFilter = (req, file, cb) => {
+    const allowedTypes = ['image/jpeg', 'image/png', 'image/gif', 'video/mp4'];
+    if (allowedTypes.includes(file.mimetype)) {
+        cb(null, true);
+    } else {
+        cb(new Error('Only images and videos are allowed'), false);
     }
-    res.json({ fileUrl: `/uploads/${req.file.filename}` });
+};
+
+// ✅ Set file size limit (10MB)
+const upload = multer({
+    storage,
+    limits: { fileSize: 10 * 1024 * 1024 }, // 10MB
+    fileFilter
+});
+
+// ✅ Improved API Route for File Uploads
+app.post('/api/upload', (req, res) => {
+    upload.single('file')(req, res, (err) => {
+        if (err) {
+            return res.status(400).json({ message: err.message });
+        }
+        if (!req.file) {
+            return res.status(400).json({ message: "No file uploaded" });
+        }
+        res.json({ fileUrl: `/uploads/${req.file.filename}` });
+    });
 });
 
 // Routes
@@ -63,7 +88,6 @@ app.use('/api/likes', likeRoutes);
 app.use('/api/posts', postRoutes);
 app.use('/api/messages', messageRoutes);
 app.use('/uploads', express.static('uploads'));
-
 
 // Test Route
 app.get('/', (req, res) => {
@@ -80,9 +104,9 @@ app.get('/', (req, res) => {
 const server = http.createServer(app);
 
 // Initialize Socket.IO
-const io = new SocketIOServer(server, { 
-    cors: { 
-        origin: 'http://localhost:5173', // ✅ Fixed incorrect origin
+const io = new SocketIOServer(server, {
+    cors: {
+        origin: 'http://localhost:5173',
         credentials: true
     }
 });
@@ -99,7 +123,7 @@ io.on('connection', (socket) => {
 
     // User joins chat with real user ID
     socket.on('join', (userId) => {
-        users[userId] = socket.id; // ✅ Store real user ID
+        users[userId] = socket.id;
         console.log(`User ${userId} is online with socket ID: ${socket.id}`);
     });
 
@@ -113,7 +137,7 @@ io.on('connection', (socket) => {
                 messageType,
                 mediaUrl
             });
-    
+
             if (users[receiverId]) {
                 io.to(users[receiverId]).emit('receiveMessage', newMessage);
             }
@@ -121,7 +145,6 @@ io.on('connection', (socket) => {
             console.error("Error sending message:", error);
         }
     });
-    
 
     // Handle user disconnect
     socket.on('disconnect', () => {
