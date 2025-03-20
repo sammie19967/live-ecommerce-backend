@@ -28,6 +28,9 @@ app.use(cors({
     origin: 'http://localhost:5173', // ✅ Fixed incorrect origin
     credentials: true // ✅ Allow cookies/sessions
 }));
+app.use(express.json()); // ✅ REQUIRED to parse JSON requests
+app.use(express.urlencoded({ extended: true })); // ✅ Helps with form data
+
 
 // Configure Multer storage
 const storage = multer.diskStorage({
