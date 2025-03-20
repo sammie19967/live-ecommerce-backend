@@ -57,6 +57,8 @@ app.use('/api/comments', commentRoutes);
 app.use('/api/likes', likeRoutes);
 app.use('/api/posts', postRoutes);
 app.use('/api/messages', messageRoutes);
+app.use('/uploads', express.static('uploads'));
+
 
 // Test Route
 app.get('/', (req, res) => {
