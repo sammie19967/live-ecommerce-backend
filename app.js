@@ -32,26 +32,25 @@ app.use(express.urlencoded({ extended: true }));
 
 // ✅ Improved API Route for File Uploads
 app.post('/api/upload', (req, res) => {
-    // Determine if it's a single or multiple file upload
-    const uploader = req.query.multiple === 'true' ? upload.array('files', 10) : upload.single('file');
+    upload.array('files', 10)(req, res, (err) => {
+        console.log("🔄 File Upload Request Received");
+        console.log("📂 Files:", req.files); // Log uploaded files
+        console.log("📜 Body:", req.body);   // Log request body
 
-    uploader(req, res, (err) => {
         if (err) {
+            console.error("❌ Multer Error:", err.message);
             return res.status(400).json({ message: err.message });
         }
-        if (!req.file && !req.files) {
-            return res.status(400).json({ message: "No file(s) uploaded" });
+        if (!req.files || req.files.length === 0) {
+            console.warn("⚠️ No files uploaded");
+            return res.status(400).json({ message: "No file uploaded" });
         }
 
-        // Handle response for single or multiple uploads
-        if (req.file) {
-            return res.json({ fileUrl: `/uploads/${req.file.filename}` });
-        } else if (req.files) {
-            const fileUrls = req.files.map(file => `/uploads/${file.filename}`);
-            return res.json({ fileUrls });
-        }
+        const fileUrls = req.files.map(file => `/uploads/${file.filename}`);
+        res.json({ fileUrls });
     });
 });
+
 
 
 // Routes
