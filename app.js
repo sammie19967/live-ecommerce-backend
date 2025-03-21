@@ -32,16 +32,27 @@ app.use(express.urlencoded({ extended: true }));
 
 // ✅ Improved API Route for File Uploads
 app.post('/api/upload', (req, res) => {
-    upload.single('file')(req, res, (err) => {
+    // Determine if it's a single or multiple file upload
+    const uploader = req.query.multiple === 'true' ? upload.array('files', 10) : upload.single('file');
+
+    uploader(req, res, (err) => {
         if (err) {
             return res.status(400).json({ message: err.message });
         }
-        if (!req.file) {
-            return res.status(400).json({ message: "No file uploaded" });
+        if (!req.file && !req.files) {
+            return res.status(400).json({ message: "No file(s) uploaded" });
         }
-        res.json({ fileUrl: `/uploads/${req.file.filename}` });
+
+        // Handle response for single or multiple uploads
+        if (req.file) {
+            return res.json({ fileUrl: `/uploads/${req.file.filename}` });
+        } else if (req.files) {
+            const fileUrls = req.files.map(file => `/uploads/${file.filename}`);
+            return res.json({ fileUrls });
+        }
     });
 });
+
 
 // Routes
 app.use('/api/auth', authRoutes);
