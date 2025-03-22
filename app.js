@@ -6,8 +6,7 @@ import { Server as SocketIOServer } from 'socket.io';
 import { ExpressPeerServer } from 'peer';
 import sequelize from './config/db.js';
 import Message from './models/Message.js';
-import path from 'path';
-import { fileURLToPath } from 'url';
+
 
 // Import routes
 import authRoutes from './routes/auth.js';
@@ -18,6 +17,11 @@ import likeRoutes from './routes/likes.js';
 import postRoutes from './routes/post.js';
 import messageRoutes from './routes/messages.js';
 import uploadRoutes from './routes/upload.js'; // Import upload routes
+import likesRoutes from './models/Like.js';
+import followerRoutes from './routes/follower.js';
+import ratingsRoutes from './routes/ratings.js';
+
+
 import './models/associations.js';
 
 dotenv.config();
@@ -43,6 +47,9 @@ app.use('/api/comments', commentRoutes);
 app.use('/api/likes', likeRoutes);
 app.use('/api/posts', postRoutes);
 app.use('/api/messages', messageRoutes);
+app.use('/api/likes', likesRoutes);
+app.use('/api/followers', followerRoutes);
+app.use('/api/ratings', ratingsRoutes);
 app.use('/uploads', express.static('uploads'));
 
 // Test Route
@@ -52,7 +59,7 @@ app.get('/', (req, res) => {
 
 // Sync Database
 (async () => {
-    await sequelize.sync({ force: true });
+    await sequelize.sync({ alter: true });
     console.log("✅ Database Synced!");
 })();
 
