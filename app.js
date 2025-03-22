@@ -7,6 +7,9 @@ import { ExpressPeerServer } from 'peer';
 import sequelize from './config/db.js';
 import Message from './models/Message.js';
 import upload from './config/multerConfig.js'; // ✅ Import Multer configuration
+import path from 'path';
+import fs from 'fs';
+import { fileURLToPath } from 'url';
 
 // Import routes
 import authRoutes from './routes/auth.js';
@@ -30,6 +33,10 @@ app.use(cors({
 }));
 app.use(express.urlencoded({ extended: true }));
 
+// Get __dirname equivalent in ES modules
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+
 // ✅ Improved API Route for File Uploads
 app.post('/api/upload', upload.array('files', 10), (req, res) => {
     console.log("🔄 File Upload Request Received");
@@ -43,6 +50,22 @@ app.post('/api/upload', upload.array('files', 10), (req, res) => {
 
     const fileUrls = req.files.map(file => `/uploads/${file.filename}`);
     res.json({ fileUrls });
+});
+
+// Serve uploaded files as static assets
+app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
+
+// API route to retrieve all uploaded files
+app.get('/api/uploads', (req, res) => {
+    const directoryPath = path.join(__dirname, 'uploads');
+
+    fs.readdir(directoryPath, (err, files) => {
+        if (err) {
+            return res.status(500).json({ message: "Error reading files." });
+        }
+        const fileUrls = files.map(file => `http://localhost:5000/uploads/${file}`);
+        res.json({ fileUrls });
+    });
 });
 
 // Routes
