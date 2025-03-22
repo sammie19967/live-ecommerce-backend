@@ -31,27 +31,19 @@ app.use(cors({
 app.use(express.urlencoded({ extended: true }));
 
 // ✅ Improved API Route for File Uploads
-app.post('/api/upload', (req, res) => {
-    upload.array('files', 10)(req, res, (err) => {
-        console.log("🔄 File Upload Request Received");
-        console.log("📂 Files:", req.files); // Log uploaded files
-        console.log("📜 Body:", req.body);   // Log request body
+app.post('/api/upload', upload.array('files', 10), (req, res) => {
+    console.log("🔄 File Upload Request Received");
+    console.log("📂 Files:", req.files); // Log uploaded files
+    console.log("📜 Body:", req.body);   // Log request body
 
-        if (err) {
-            console.error("❌ Multer Error:", err.message);
-            return res.status(400).json({ message: err.message });
-        }
-        if (!req.files || req.files.length === 0) {
-            console.warn("⚠️ No files uploaded");
-            return res.status(400).json({ message: "No file uploaded" });
-        }
+    if (!req.files || req.files.length === 0) {
+        console.warn("⚠️ No files uploaded");
+        return res.status(400).json({ message: "No file uploaded" });
+    }
 
-        const fileUrls = req.files.map(file => `/uploads/${file.filename}`);
-        res.json({ fileUrls });
-    });
+    const fileUrls = req.files.map(file => `/uploads/${file.filename}`);
+    res.json({ fileUrls });
 });
-
-
 
 // Routes
 app.use('/api/auth', authRoutes);
