@@ -6,9 +6,7 @@ import { Server as SocketIOServer } from 'socket.io';
 import { ExpressPeerServer } from 'peer';
 import sequelize from './config/db.js';
 import Message from './models/Message.js';
-import upload from './config/multerConfig.js'; // ✅ Import Multer configuration
 import path from 'path';
-import fs from 'fs';
 import { fileURLToPath } from 'url';
 
 // Import routes
@@ -19,6 +17,7 @@ import commentRoutes from './routes/comments.js';
 import likeRoutes from './routes/likes.js';
 import postRoutes from './routes/post.js';
 import messageRoutes from './routes/messages.js';
+import uploadRoutes from './routes/upload.js'; // Import upload routes
 import './models/associations.js';
 
 dotenv.config();
@@ -33,40 +32,8 @@ app.use(cors({
 }));
 app.use(express.urlencoded({ extended: true }));
 
-// Get __dirname equivalent in ES modules
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
-
-// ✅ Improved API Route for File Uploads
-app.post('/api/upload', upload.array('files', 10), (req, res) => {
-    console.log("🔄 File Upload Request Received");
-    console.log("📂 Files:", req.files); // Log uploaded files
-    console.log("📜 Body:", req.body);   // Log request body
-
-    if (!req.files || req.files.length === 0) {
-        console.warn("⚠️ No files uploaded");
-        return res.status(400).json({ message: "No file uploaded" });
-    }
-
-    const fileUrls = req.files.map(file => `/uploads/${file.filename}`);
-    res.json({ fileUrls });
-});
-
-// Serve uploaded files as static assets
-app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
-
-// API route to retrieve all uploaded files
-app.get('/api/uploads', (req, res) => {
-    const directoryPath = path.join(__dirname, 'uploads');
-
-    fs.readdir(directoryPath, (err, files) => {
-        if (err) {
-            return res.status(500).json({ message: "Error reading files." });
-        }
-        const fileUrls = files.map(file => `http://localhost:5000/uploads/${file}`);
-        res.json({ fileUrls });
-    });
-});
+// Use upload routes
+app.use('/api', uploadRoutes);
 
 // Routes
 app.use('/api/auth', authRoutes);
@@ -85,7 +52,7 @@ app.get('/', (req, res) => {
 
 // Sync Database
 (async () => {
-    await sequelize.sync({ alter: true });
+    await sequelize.sync({ force: true });
     console.log("✅ Database Synced!");
 })();
 
