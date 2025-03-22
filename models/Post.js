@@ -1,35 +1,24 @@
-import { DataTypes } from 'sequelize';
-import sequelize from '../config/db.js';
+import { DataTypes } from "sequelize";
+import sequelize from "../config/db.js";
 
-
-const Post = sequelize.define('Post', {
+const Post = sequelize.define("Post", {
     id: {
         type: DataTypes.UUID,
         defaultValue: DataTypes.UUIDV4,
-        primaryKey: true
+        primaryKey: true,
+    },
+    caption: {
+        type: DataTypes.TEXT,
+        allowNull: true,
+    },
+    mediaUrl: {
+        type: DataTypes.STRING,
+        allowNull: false,
     },
     userId: {
         type: DataTypes.UUID,
-        allowNull: false
-    },
-    text: {
-        type: DataTypes.TEXT,
-        allowNull: true
-    },
-    imageUrl: {
-        type: DataTypes.STRING,
-        allowNull: true
-    },
-    videoUrl: {
-        type: DataTypes.STRING,
-        allowNull: true
+        allowNull: false,
     }
-}, {
-    timestamps: true
 });
-
-
-
-
 
 export default Post;

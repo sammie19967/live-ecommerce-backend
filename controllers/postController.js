@@ -1,140 +1,133 @@
-import Post from '../models/Post.js';
-import User from '../models/User.js';
+import Post from "../models/Post.js";
+import User from "../models/User.js";
 
+// Create a new post
 export const createPost = async (req, res) => {
     try {
-        const { text, imageUrl, videoUrl } = req.body;
-        const userId = req.user.id;
+        const { caption, mediaUrl, mediaType } = req.body;
+        const userId = req.user.id; // Assuming user is authenticated
 
-        const post = await Post.create({ text, imageUrl, videoUrl, userId });
+        if (!mediaUrl || !mediaType) {
+            return res.status(400).json({ message: "Media is required." });
+        }
 
-        // Fetch post with user details using the correct alias
-        const newPost = await Post.findByPk(post.id, {
-            include: { 
-                model: User, 
-                as: 'User',  // ✅ Match alias
-                attributes: ['id', 'username']
-            }
+        const post = await Post.create({
+            caption,
+            mediaUrl,
+            mediaType,
+            userId,
         });
 
-        return res.status(201).json({
-            message: 'Post created successfully',
-            post: {
-                id: newPost.id,
-                text: newPost.text,
-                imageUrl: newPost.imageUrl,
-                videoUrl: newPost.videoUrl,
-                createdAt: newPost.createdAt,
-                user: {
-                    id: newPost.User.id, // ✅ Ensure alias is capitalized
-                    username: newPost.User.username
-                }
-            }
-        });
+        res.status(201).json({ message: "Post created successfully", post });
     } catch (error) {
-        return res.status(500).json({ message: 'Server error', error: error.message });
+        console.error("Error creating post:", error);
+        res.status(500).json({ message: "Internal server error" });
     }
 };
 
-
-
+// Get all posts (with pagination)
 export const getPosts = async (req, res) => {
     try {
-        const posts = await Post.findAll({
-            include: { 
-                model: User, 
-                as: 'User',  // ✅ Capital "User" (MUST match association)
-                attributes: ['id', 'username'] 
-            }
+        const { page = 1, limit = 10 } = req.query;
+        const offset = (page - 1) * limit;
+
+        const posts = await Post.findAndCountAll({
+            include: [{ model: User, attributes: ["id", "username"] }],
+            order: [["createdAt", "DESC"]],
+            limit: parseInt(limit),
+            offset: parseInt(offset),
         });
 
-        const formattedPosts = posts.map(post => ({
-            id: post.id,
-            text: post.text,
-            imageUrl: post.imageUrl,
-            videoUrl: post.videoUrl,
-            createdAt: post.createdAt,
-            user: {
-                id: post.User.id, // ✅ Use correct alias (capital "User")
-                username: post.User.username
-            }
-        }));
-
-        return res.json(formattedPosts);
+        res.json({ 
+            totalPosts: posts.count, 
+            currentPage: page, 
+            totalPages: Math.ceil(posts.count / limit),
+            posts: posts.rows 
+        });
     } catch (error) {
-        return res.status(500).json({ message: 'Server error', error: error.message });
+        console.error("Error fetching posts:", error);
+        res.status(500).json({ message: "Internal server error" });
     }
 };
 
-
-
+// Get post by ID
 export const getPostById = async (req, res) => {
     try {
-        const post = await Post.findByPk(req.params.id, {
-            include: { model: User, attributes: ['id', 'username'] }
+        const { postId } = req.params;
+
+        const post = await Post.findOne({
+            where: { id: postId },
+            include: [{ model: User, attributes: ["id", "username"] }],
         });
 
-        if (!post) return res.status(404).json({ message: 'Post not found' });
+        if (!post) {
+            return res.status(404).json({ message: "Post not found" });
+        }
 
-        return res.json({
-            id: post.id,
-            text: post.text,
-            imageUrl: post.imageUrl,
-            videoUrl: post.videoUrl,
-            createdAt: post.createdAt,
-            user: {
-                id: post.User.id,
-                username: post.User.username,
-            }
-        });
+        res.json(post);
     } catch (error) {
-        return res.status(500).json({ message: 'Server error', error: error.message });
+        console.error("Error fetching post:", error);
+        res.status(500).json({ message: "Internal server error" });
     }
 };
 
+// Get posts by logged-in user
+export const getMyPosts = async (req, res) => {
+    try {
+        const userId = req.user.id;
+
+        const posts = await Post.findAll({
+            where: { userId },
+            include: [{ model: User, attributes: ["id", "username"] }],
+            order: [["createdAt", "DESC"]],
+        });
+
+        res.json(posts);
+    } catch (error) {
+        console.error("Error fetching user's posts:", error);
+        res.status(500).json({ message: "Internal server error" });
+    }
+};
+
+// Update a post
 export const updatePost = async (req, res) => {
     try {
-        const { text, imageUrl, videoUrl } = req.body;
-        const post = await Post.findByPk(req.params.id, {
-            include: { model: User, attributes: ['id', 'username'] }
-        });
+        const { postId } = req.params;
+        const { caption, mediaUrl, mediaType } = req.body;
+        const userId = req.user.id;
 
-        if (!post) return res.status(404).json({ message: 'Post not found' });
-        if (post.userId !== req.user.id) return res.status(403).json({ message: 'Unauthorized' });
+        const post = await Post.findOne({ where: { id: postId, userId } });
+        if (!post) {
+            return res.status(404).json({ message: "Post not found or unauthorized" });
+        }
 
-        await post.update({ text, imageUrl, videoUrl });
+        post.caption = caption || post.caption;
+        post.mediaUrl = mediaUrl || post.mediaUrl;
+        post.mediaType = mediaType || post.mediaType;
 
-        return res.json({
-            message: 'Post updated successfully',
-            post: {
-                id: post.id,
-                text: post.text,
-                imageUrl: post.imageUrl,
-                videoUrl: post.videoUrl,
-                createdAt: post.createdAt,
-                user: {
-                    id: post.User.id,
-                    username: post.User.username,
-                }
-            }
-        });
+        await post.save();
+        res.json({ message: "Post updated successfully", post });
     } catch (error) {
-        return res.status(500).json({ message: 'Server error', error: error.message });
+        console.error("Error updating post:", error);
+        res.status(500).json({ message: "Internal server error" });
     }
 };
 
+// Delete a post
 export const deletePost = async (req, res) => {
     try {
-        const post = await Post.findByPk(req.params.id, {
-            include: { model: User, attributes: ['id', 'username'] }
-        });
+        const { postId } = req.params;
+        const userId = req.user.id;
 
-        if (!post) return res.status(404).json({ message: 'Post not found' });
-        if (post.userId !== req.user.id) return res.status(403).json({ message: 'Unauthorized' });
+        const post = await Post.findOne({ where: { id: postId, userId } });
+        if (!post) {
+            return res.status(404).json({ message: "Post not found or unauthorized" });
+        }
 
         await post.destroy();
-        return res.json({ message: `Post by ${post.User.username} deleted successfully` });
+        res.json({ message: "Post deleted successfully" });
     } catch (error) {
-        return res.status(500).json({ message: 'Server error', error: error.message });
+        console.error("Error deleting post:", error);
+        res.status(500).json({ message: "Internal server error" });
     }
 };

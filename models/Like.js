@@ -1,24 +1,21 @@
-import { DataTypes } from 'sequelize';
-import sequelize from '../config/db.js';
+import { DataTypes } from "sequelize";
+import sequelize from "../config/db.js";
+import User from "./User.js";
+import Post from "./Post.js";
 
-
-const Like = sequelize.define('Like', {
-    type: {
-        type: DataTypes.INTEGER,
-        allowNull: false,
-    },
-    userId: {
-        type: DataTypes.UUID, // Change this to UUID to match the User model
-        allowNull: false,
-    },
-    postId: {
-        type: DataTypes.UUID, // For posts (optional)
-        allowNull: true,
-    },
-    streamId: {
-        type: DataTypes.UUID, // For live streams (optional)
-        allowNull: true,
+const Like = sequelize.define("Like", {
+    id: {
+        type: DataTypes.UUID,
+        defaultValue: DataTypes.UUIDV4,
+        primaryKey: true
     }
 });
+
+// ✅ A user can like multiple posts, and a post can have multiple likes
+User.hasMany(Like, { foreignKey: "userId", onDelete: "CASCADE" });
+Like.belongsTo(User, { foreignKey: "userId" });
+
+Post.hasMany(Like, { foreignKey: "postId", onDelete: "CASCADE" });
+Like.belongsTo(Post, { foreignKey: "postId" });
 
 export default Like;
