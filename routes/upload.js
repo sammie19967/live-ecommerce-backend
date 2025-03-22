@@ -40,5 +40,17 @@ router.get('/uploads', (req, res) => {
         res.json({ fileUrls });
     });
 });
+router.delete("/:filename", (req, res) => {
+    const filePath = path.join(__dirname, "../uploads", req.params.filename);
+
+    fs.unlink(filePath, (err) => {
+        if (err) {
+            return res.status(500).json({ message: "Error deleting file." });
+        }
+        res.json({ message: "File deleted successfully." });
+    });
+});
+
+
 
 export default router;
