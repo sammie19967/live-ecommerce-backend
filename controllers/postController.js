@@ -4,26 +4,37 @@ import User from "../models/User.js";
 // Create a new post
 export const createPost = async (req, res) => {
     try {
-        const { caption, mediaUrl, mediaType } = req.body;
-        const userId = req.user.id; // Assuming user is authenticated
+        console.log("Received request:", req.body); // ✅ Debug request body
+        console.log("Uploaded files:", req.files); // ✅ Debug uploaded files
 
-        if (!mediaUrl || !mediaType) {
+        const { caption, mediaType } = req.body;
+        const userId = req.user.id; // Authenticated user
+
+        if (!req.files || req.files.length === 0) {
+            console.log("Error: No files uploaded");
             return res.status(400).json({ message: "Media is required." });
         }
 
+        // ✅ Store multiple media files
+        const mediaUrls = req.files.map(file => `/uploads/${file.filename}`).join(","); // ✅ Convert array to comma-separated string
+
         const post = await Post.create({
             caption,
-            mediaUrl,
+            mediaUrl: mediaUrls, // ✅ Now it's a string
             mediaType,
             userId,
         });
+        
 
         res.status(201).json({ message: "Post created successfully", post });
     } catch (error) {
-        console.error("Error creating post:", error);
+        console.error("🔥 Error creating post:", error); // ✅ Print full error
         res.status(500).json({ message: "Internal server error" });
     }
 };
+
+
+
 
 // Get all posts (with pagination)
 export const getPosts = async (req, res) => {
