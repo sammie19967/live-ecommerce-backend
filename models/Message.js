@@ -11,12 +11,14 @@ const Message = sequelize.define('Message', {
     senderId: {
         type: DataTypes.UUID,
         allowNull: false,
-        references: { model: 'Users', key: 'id' }
+        references: { model: User.tableName, key: 'id' },
+        onDelete: 'CASCADE'
     },
     receiverId: {
         type: DataTypes.UUID,
         allowNull: false,
-        references: { model: 'Users', key: 'id' }
+        references: { model: User.tableName, key: 'id' },
+        onDelete: 'CASCADE'
     },
     message: {
         type: DataTypes.TEXT,
@@ -29,6 +31,10 @@ const Message = sequelize.define('Message', {
     mediaUrl: {
         type: DataTypes.TEXT,
         allowNull: true // Only needed for image/video messages
+    },
+    read: {
+        type: DataTypes.BOOLEAN,
+        defaultValue: false // Track if the message has been read
     }
 }, {
     timestamps: true

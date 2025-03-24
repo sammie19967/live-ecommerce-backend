@@ -7,7 +7,6 @@ import { ExpressPeerServer } from 'peer';
 import sequelize from './config/db.js';
 import Message from './models/Message.js';
 
-
 // Import routes
 import authRoutes from './routes/auth.js';
 import productRoutes from './routes/products.js';
@@ -16,11 +15,10 @@ import commentRoutes from './routes/comments.js';
 import likeRoutes from './routes/likes.js';
 import postRoutes from './routes/post.js';
 import messageRoutes from './routes/messages.js';
-import uploadRoutes from './routes/upload.js'; // Import upload routes
+import uploadRoutes from './routes/upload.js';
 import likesRoutes from './models/Like.js';
 import followerRoutes from './routes/follower.js';
 import ratingsRoutes from './routes/ratings.js';
-
 
 import './models/associations.js';
 
@@ -31,7 +29,7 @@ const app = express();
 // Middleware
 app.use(express.json());
 app.use(cors({
-    origin: 'http://localhost:5173',
+    origin: ['http://localhost:5173', 'http://192.168.100.4:5173'],
     credentials: true
 }));
 app.use(express.urlencoded({ extended: true }));
@@ -69,7 +67,7 @@ const server = http.createServer(app);
 // Initialize Socket.IO
 const io = new SocketIOServer(server, {
     cors: {
-        origin: 'http://localhost:5173',
+        origin: ['http://localhost:5173', 'http://192.168.100.4:5173'],
         credentials: true
     }
 });
@@ -78,13 +76,13 @@ const io = new SocketIOServer(server, {
 const peerServer = ExpressPeerServer(server, { debug: true });
 app.use('/peerjs', peerServer);
 
-// Store connected users (using real user IDs)
+// Store connected users
 const users = {};
 
 io.on('connection', (socket) => {
     console.log('A user connected:', socket.id);
 
-    // User joins chat with real user ID
+    // User joins chat
     socket.on('join', (userId) => {
         users[userId] = socket.id;
         console.log(`User ${userId} is online with socket ID: ${socket.id}`);
@@ -93,6 +91,7 @@ io.on('connection', (socket) => {
     // Handle sending a private message
     socket.on('sendMessage', async ({ senderId, receiverId, message, messageType, mediaUrl }) => {
         try {
+            // Store message in database
             const newMessage = await Message.create({
                 senderId,
                 receiverId,
@@ -101,6 +100,10 @@ io.on('connection', (socket) => {
                 mediaUrl
             });
 
+            // Emit message to sender (so they see it immediately)
+            io.to(users[senderId]).emit('messageSent', newMessage);
+
+            // Emit message to receiver (if online)
             if (users[receiverId]) {
                 io.to(users[receiverId]).emit('receiveMessage', newMessage);
             }
