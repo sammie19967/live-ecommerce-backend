@@ -4,7 +4,6 @@ import cors from 'cors';
 import http from 'http';
 import { Server as SocketIOServer } from 'socket.io';
 import sequelize from './config/db.js';
-import Message from './models/Message.js';
 import { setupWebRTC } from './config/webrtc.js';
 
 // Import routes
@@ -18,6 +17,8 @@ import messageRoutes from './routes/messages.js';
 import uploadRoutes from './routes/upload.js';
 import followerRoutes from './routes/follower.js';
 import ratingsRoutes from './routes/ratings.js';
+
+import { handleMessaging } from './socket/messageSocket.js'; // ✅ Import messaging logic
 
 import './models/associations.js';
 
@@ -62,7 +63,7 @@ app.get('/', (req, res) => {
 // Create HTTP server
 const server = http.createServer(app);
 
-// Initialize Socket.IO (for messaging)
+// Initialize Socket.IO (General setup)
 const io = new SocketIOServer(server, {
     cors: {
         origin: ['http://localhost:5173', 'http://192.168.100.4:5173'],
@@ -70,69 +71,12 @@ const io = new SocketIOServer(server, {
     }
 });
 
-// Setup WebRTC without affecting messages
+// ✅ Handle messaging separately
+handleMessaging(io);
+
+// ✅ Setup WebRTC (for later use in streaming)
 const peerServer = setupWebRTC(io, server);
 app.use('/peerjs', peerServer);
-
-// Store connected users: { userId: socketId }
-const users = {};
-
-io.on('connection', (socket) => {
-    console.log('🔌 A user connected:', socket.id);
-
-    // User joins chat
-    socket.on('join', (userId) => {
-        users[userId] = socket.id;
-        console.log(`✅ User ${userId} is online with socket ID: ${socket.id}`);
-    });
-
-    // Handle sending a private message
-    socket.on('sendMessage', async ({ senderId, receiverId, message, messageType, mediaUrl }) => {
-        try {
-            // Store message in database
-            const newMessage = await Message.create({
-                senderId,
-                receiverId,
-                message,
-                messageType,
-                mediaUrl
-            });
-
-            // Emit message to sender (if still connected)
-            if (users[senderId]) {
-                io.to(users[senderId]).emit('messageSent', newMessage);
-            }
-
-            // Emit message to receiver (if online)
-            if (users[receiverId]) {
-                io.to(users[receiverId]).emit('receiveMessage', newMessage);
-            } else {
-                console.log(`ℹ️ User ${receiverId} is offline. Message stored.`);
-            }
-
-        } catch (error) {
-            console.error("❌ Error sending message:", error);
-        }
-    });
-
-    // Optional: Ping-pong to test connectivity
-    socket.on('ping', () => {
-        console.log(`Ping received from socket: ${socket.id}`);
-        socket.emit('pong');
-    });
-
-    // Handle user disconnect
-    socket.on('disconnect', () => {
-        console.log('❌ A user disconnected:', socket.id);
-        for (let userId in users) {
-            if (users[userId] === socket.id) {
-                console.log(`User ${userId} disconnected.`);
-                delete users[userId];
-                break;
-            }
-        }
-    });
-});
 
 // Start Server
 const PORT = process.env.PORT || 5000;
