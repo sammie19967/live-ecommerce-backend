@@ -4,7 +4,7 @@ import cors from 'cors';
 import http from 'http';
 import { Server as SocketIOServer } from 'socket.io';
 import sequelize from './config/db.js';
-import { setupWebRTC } from './config/webrtc.js';
+import { setupWebRTC } from './socket/webrtc.js'; // ✅ Ensure this correctly initializes WebRTC
 
 // Import routes
 import authRoutes from './routes/auth.js';
@@ -18,7 +18,7 @@ import uploadRoutes from './routes/upload.js';
 import followerRoutes from './routes/follower.js';
 import ratingsRoutes from './routes/ratings.js';
 
-import { handleMessaging } from './socket/messageSocket.js'; // ✅ Import messaging logic
+import { handleMessaging } from './socket/messageSocket.js'; // ✅ Messaging logic
 
 import './models/associations.js';
 
@@ -68,15 +68,15 @@ const io = new SocketIOServer(server, {
     cors: {
         origin: ['http://localhost:5173', 'http://192.168.100.4:5173'],
         credentials: true
-    }
+    },
+    transports: ['websocket', 'polling'] // ✅ Fix potential WebSocket issue
 });
 
 // ✅ Handle messaging separately
 handleMessaging(io);
 
-// ✅ Setup WebRTC (for later use in streaming)
-const peerServer = setupWebRTC(io, server);
-app.use('/peerjs', peerServer);
+// ✅ Setup WebRTC (for live streaming, ensures users get permissions)
+setupWebRTC(io);
 
 // Start Server
 const PORT = process.env.PORT || 5000;
