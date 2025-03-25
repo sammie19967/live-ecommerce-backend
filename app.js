@@ -3,10 +3,9 @@ import express from 'express';
 import cors from 'cors';
 import http from 'http';
 import { Server as SocketIOServer } from 'socket.io';
-import { ExpressPeerServer } from 'peer';
 import sequelize from './config/db.js';
 import Message from './models/Message.js';
-import { setupWebRTC } from './config/webrct.js';
+import { setupWebRTC } from './config/webrtc.js';
 
 // Import routes
 import authRoutes from './routes/auth.js';
@@ -25,10 +24,8 @@ import './models/associations.js';
 dotenv.config();
 
 const app = express();
-const { io, peerServer } = setupWebRTC(server);
 
 // Middleware
-app.use('/peerjs', peerServer);
 app.use(express.json());
 app.use(cors({
     origin: ['http://localhost:5173', 'http://192.168.100.4:5173'],
@@ -65,7 +62,7 @@ app.get('/', (req, res) => {
 // Create HTTP server
 const server = http.createServer(app);
 
-// Initialize Socket.IO
+// Initialize Socket.IO (for messaging)
 const io = new SocketIOServer(server, {
     cors: {
         origin: ['http://localhost:5173', 'http://192.168.100.4:5173'],
@@ -73,8 +70,8 @@ const io = new SocketIOServer(server, {
     }
 });
 
-// WebRTC PeerJS Server
-const peerServer = ExpressPeerServer(server, { debug: true });
+// Setup WebRTC without affecting messages
+const peerServer = setupWebRTC(io, server);
 app.use('/peerjs', peerServer);
 
 // Store connected users: { userId: socketId }
