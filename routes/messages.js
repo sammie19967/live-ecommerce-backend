@@ -9,6 +9,7 @@ const router = express.Router();
 router.post('/', authenticate, upload.single('media'), sendMessage);
 
 // ✅ Get messages between two users
-router.get('/:receiverId', authenticate, getMessages);
+router.get('/:senderId/:receiverId', authenticate, getMessages);
+
 
 export default router;

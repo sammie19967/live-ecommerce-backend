@@ -16,7 +16,6 @@ import likeRoutes from './routes/likes.js';
 import postRoutes from './routes/post.js';
 import messageRoutes from './routes/messages.js';
 import uploadRoutes from './routes/upload.js';
-import likesRoutes from './models/Like.js';
 import followerRoutes from './routes/follower.js';
 import ratingsRoutes from './routes/ratings.js';
 
@@ -34,7 +33,7 @@ app.use(cors({
 }));
 app.use(express.urlencoded({ extended: true }));
 
-// Use upload routes
+// Upload route
 app.use('/api', uploadRoutes);
 
 // Routes
@@ -45,7 +44,6 @@ app.use('/api/comments', commentRoutes);
 app.use('/api/likes', likeRoutes);
 app.use('/api/posts', postRoutes);
 app.use('/api/messages', messageRoutes);
-app.use('/api/likes', likesRoutes);
 app.use('/api/followers', followerRoutes);
 app.use('/api/ratings', ratingsRoutes);
 app.use('/uploads', express.static('uploads'));
@@ -76,16 +74,16 @@ const io = new SocketIOServer(server, {
 const peerServer = ExpressPeerServer(server, { debug: true });
 app.use('/peerjs', peerServer);
 
-// Store connected users
+// Store connected users: { userId: socketId }
 const users = {};
 
 io.on('connection', (socket) => {
-    console.log('A user connected:', socket.id);
+    console.log('🔌 A user connected:', socket.id);
 
     // User joins chat
     socket.on('join', (userId) => {
         users[userId] = socket.id;
-        console.log(`User ${userId} is online with socket ID: ${socket.id}`);
+        console.log(`✅ User ${userId} is online with socket ID: ${socket.id}`);
     });
 
     // Handle sending a private message
@@ -100,23 +98,35 @@ io.on('connection', (socket) => {
                 mediaUrl
             });
 
-            // Emit message to sender (so they see it immediately)
-            io.to(users[senderId]).emit('messageSent', newMessage);
+            // Emit message to sender (if still connected)
+            if (users[senderId]) {
+                io.to(users[senderId]).emit('messageSent', newMessage);
+            }
 
             // Emit message to receiver (if online)
             if (users[receiverId]) {
                 io.to(users[receiverId]).emit('receiveMessage', newMessage);
+            } else {
+                console.log(`ℹ️ User ${receiverId} is offline. Message stored.`);
             }
+
         } catch (error) {
-            console.error("Error sending message:", error);
+            console.error("❌ Error sending message:", error);
         }
+    });
+
+    // Optional: Ping-pong to test connectivity
+    socket.on('ping', () => {
+        console.log(`Ping received from socket: ${socket.id}`);
+        socket.emit('pong');
     });
 
     // Handle user disconnect
     socket.on('disconnect', () => {
-        console.log('A user disconnected:', socket.id);
+        console.log('❌ A user disconnected:', socket.id);
         for (let userId in users) {
             if (users[userId] === socket.id) {
+                console.log(`User ${userId} disconnected.`);
                 delete users[userId];
                 break;
             }
