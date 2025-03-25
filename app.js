@@ -6,6 +6,7 @@ import { Server as SocketIOServer } from 'socket.io';
 import { ExpressPeerServer } from 'peer';
 import sequelize from './config/db.js';
 import Message from './models/Message.js';
+import { setupWebRTC } from './config/webrct.js';
 
 // Import routes
 import authRoutes from './routes/auth.js';
@@ -24,8 +25,10 @@ import './models/associations.js';
 dotenv.config();
 
 const app = express();
+const { io, peerServer } = setupWebRTC(server);
 
 // Middleware
+app.use('/peerjs', peerServer);
 app.use(express.json());
 app.use(cors({
     origin: ['http://localhost:5173', 'http://192.168.100.4:5173'],
