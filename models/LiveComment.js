@@ -9,13 +9,21 @@ const LiveComment = sequelize.define('LiveComment', {
         defaultValue: DataTypes.UUIDV4,
         primaryKey: true
     },
+    userId: {
+        type: DataTypes.UUID,
+        allowNull: false
+    },
+    streamId: {
+        type: DataTypes.UUID,
+        allowNull: false
+    },
     comment: {
         type: DataTypes.TEXT,
         allowNull: false
     }
 });
 
-// Relationships
+// Define relationships
 LiveComment.belongsTo(User, { foreignKey: 'userId' });
 LiveComment.belongsTo(LiveStream, { foreignKey: 'streamId' });
 

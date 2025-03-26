@@ -1,98 +1,87 @@
-// Updated webrtc.js with more robust features
-const liveStreams = new Map(); // Better performance than plain object
+import LiveStream from '../models/LiveStream.js';
+import LiveComment from '../models/LiveComment.js';
+import LiveLike from '../models/LiveLike.js';
+import LiveView from '../models/LiveView.js';
+
+const liveStreams = new Map();
 
 export const setupWebRTC = (io) => {
     io.on('connection', (socket) => {
         console.log('🔌 User connected:', socket.id);
-
-        // Track user's current stream
         let currentStream = null;
 
-        // Host starts a live stream
-        socket.on('startStream', ({ hostId, streamId }) => {
+        socket.on('startStream', async ({ hostId, streamId }) => {
+            await LiveStream.update({ isActive: true }, { where: { id: streamId } });
             liveStreams.set(streamId, {
                 hostId,
-                viewers: new Set(), // Using Set prevents duplicates
+                viewers: new Set(),
                 likes: 0,
-                likeUsers: new Set(), // Track who liked to prevent duplicates
+                likeUsers: new Set(),
                 comments: [],
                 startTime: new Date(),
                 status: 'live'
             });
-            
             socket.join(streamId);
             currentStream = streamId;
             io.emit('streamListUpdated', Array.from(liveStreams.keys()));
             console.log(`🎥 Host ${hostId} started stream ${streamId}`);
         });
 
-        // Viewer joins a stream
-        socket.on('joinStream', ({ streamId, userId }) => {
+        socket.on('joinStream', async ({ streamId, userId }) => {
             const stream = liveStreams.get(streamId);
             if (stream) {
                 stream.viewers.add(userId);
                 socket.join(streamId);
                 currentStream = streamId;
-                
-                // Update all clients in the stream
+                await LiveView.findOrCreate({ where: { streamId, userId } });
                 io.to(streamId).emit('streamUpdate', {
                     viewers: stream.viewers.size,
                     likes: stream.likes,
-                    comments: stream.comments.slice(-50) // Send last 50 comments
+                    comments: stream.comments.slice(-50)
                 });
-                
                 console.log(`👀 Viewer ${userId} joined stream ${streamId}`);
             }
         });
 
-        // Send live comment with rate limiting
-        socket.on('sendComment', ({ streamId, userId, comment }) => {
+        socket.on('sendComment', async ({ streamId, userId, comment }) => {
             const stream = liveStreams.get(streamId);
             if (stream) {
-                // Basic rate limiting (1 comment per second)
-                const lastComment = stream.comments[stream.comments.length - 1];
-                if (lastComment && lastComment.userId === userId && 
-                    (new Date() - lastComment.timestamp) < 1000) {
-                    return socket.emit('commentError', 'You\'re commenting too fast!');
-                }
-
-                const newComment = {
-                    userId,
-                    comment,
-                    timestamp: new Date()
-                };
-                
+                const newComment = await LiveComment.create({ streamId, userId, comment });
                 stream.comments.push(newComment);
                 io.to(streamId).emit('receiveComment', newComment);
             }
         });
 
-        // Send like with duplicate prevention
-        socket.on('sendLike', ({ streamId, userId }) => {
+        socket.on('sendLike', async ({ streamId, userId }) => {
             const stream = liveStreams.get(streamId);
-            if (stream && !stream.likeUsers.has(userId)) {
-                stream.likes += 1;
-                stream.likeUsers.add(userId);
-                io.to(streamId).emit('updateLikes', stream.likes);
+            if (stream) {
+                const [like, created] = await LiveLike.findOrCreate({ where: { streamId, userId } });
+                if (created) {
+                    stream.likes += 1;
+                    stream.likeUsers.add(userId);
+                    io.to(streamId).emit('updateLikes', stream.likes);
+                }
             }
         });
 
-        // Get stream info
-        socket.on('getStreamInfo', ({ streamId }, callback) => {
+        socket.on('getStreamInfo', async ({ streamId }, callback) => {
             const stream = liveStreams.get(streamId);
             if (stream) {
+                const comments = await LiveComment.findAll({ where: { streamId }, limit: 50, order: [['createdAt', 'DESC']] });
+                const likes = await LiveLike.count({ where: { streamId } });
+                const viewers = await LiveView.count({ where: { streamId } });
                 callback({
-                    viewers: stream.viewers.size,
-                    likes: stream.likes,
-                    comments: stream.comments.slice(-50),
+                    viewers,
+                    likes,
+                    comments,
                     duration: Math.floor((new Date() - stream.startTime) / 1000)
                 });
             }
         });
 
-        // Host ends the stream
-        socket.on('endStream', ({ streamId }) => {
+        socket.on('endStream', async ({ streamId }) => {
             if (liveStreams.has(streamId)) {
+                await LiveStream.update({ isActive: false }, { where: { id: streamId } });
                 io.to(streamId).emit('streamEnded');
                 liveStreams.delete(streamId);
                 io.emit('streamListUpdated', Array.from(liveStreams.keys()));
@@ -100,24 +89,19 @@ export const setupWebRTC = (io) => {
             }
         });
 
-        // Handle disconnect
-        socket.on('disconnect', () => {
+        socket.on('disconnect', async () => {
             if (currentStream) {
                 const stream = liveStreams.get(currentStream);
                 if (stream) {
-                    // If host disconnects, end the stream
                     if (stream.hostId === socket.id) {
+                        await LiveStream.update({ isActive: false }, { where: { id: currentStream } });
                         io.to(currentStream).emit('streamEnded');
                         liveStreams.delete(currentStream);
                         io.emit('streamListUpdated', Array.from(liveStreams.keys()));
                         console.log(`⏹️ Stream ${currentStream} ended due to host disconnect`);
-                    }
-                    // Remove viewer
-                    else if (stream.viewers.has(socket.id)) {
+                    } else if (stream.viewers.has(socket.id)) {
                         stream.viewers.delete(socket.id);
-                        io.to(currentStream).emit('viewerLeft', {
-                            viewers: stream.viewers.size
-                        });
+                        io.to(currentStream).emit('viewerLeft', { viewers: stream.viewers.size });
                     }
                 }
             }
