@@ -1,6 +1,6 @@
 import express from 'express';
 import { authenticate, isSeller } from '../middleware/authMiddleware.js';
-import LiveStream from '../models/Livestream.js';
+import LiveStream from '../models/LiveStream.js';
 
 const router = express.Router();
 

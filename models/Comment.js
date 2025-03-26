@@ -1,7 +1,7 @@
 import { DataTypes } from 'sequelize';
 import sequelize from '../config/db.js';
 import User from './User.js';
-import LiveStream from './Livestream.js';
+import LiveStream from './LiveStream.js';
 import Post from './Post.js';
 
 const Comment = sequelize.define('Comment', {

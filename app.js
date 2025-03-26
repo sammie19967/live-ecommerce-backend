@@ -17,6 +17,9 @@ import messageRoutes from './routes/messages.js';
 import uploadRoutes from './routes/upload.js';
 import followerRoutes from './routes/follower.js';
 import ratingsRoutes from './routes/ratings.js';
+import liveCommentRoutes from './routes/liveComments.js';
+import liveLikeRoutes from './routes/liveLikes.js';
+import liveViewRoutes from './routes/liveViews.js';
 
 import { handleMessaging } from './socket/messageSocket.js'; // ✅ Messaging logic
 
@@ -48,6 +51,9 @@ app.use('/api/messages', messageRoutes);
 app.use('/api/followers', followerRoutes);
 app.use('/api/ratings', ratingsRoutes);
 app.use('/uploads', express.static('uploads'));
+app.use('/api/liveComments', liveCommentRoutes);
+app.use('/api/liveLikes', liveLikeRoutes);
+app.use('/api/liveViews', liveViewRoutes);
 
 // Test Route
 app.get('/', (req, res) => {
@@ -56,7 +62,7 @@ app.get('/', (req, res) => {
 
 // Sync Database
 (async () => {
-    await sequelize.sync({ alter: true });
+    await sequelize.sync({ forc: true });
     console.log("✅ Database Synced!");
 })();
 

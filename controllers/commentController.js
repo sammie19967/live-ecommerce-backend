@@ -1,5 +1,5 @@
 import Comment from '../models/Comment.js';
-import LiveStream from '../models/Livestream.js';
+import LiveStream from '../models/LiveStream.js';
 import User from '../models/User.js';
 import Post from '../models/Post.js';
 
