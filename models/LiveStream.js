@@ -23,7 +23,7 @@ const LiveStream = sequelize.define('LiveStream', {
     }
 });
 
-// Relationship: A LiveStream belongs to a User (Seller)
-LiveStream.belongsTo(User, { foreignKey: 'sellerId' });
+// Relationship: A User can have only ONE LiveStream
+LiveStream.belongsTo(User, { foreignKey: 'userId', unique: true, onDelete: "CASCADE" });
 
 export default LiveStream;

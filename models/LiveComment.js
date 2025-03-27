@@ -1,7 +1,6 @@
 import { DataTypes } from 'sequelize';
 import sequelize from '../config/db.js';
 import User from './User.js';
-import LiveStream from './LiveStream.js';
 
 const LiveComment = sequelize.define('LiveComment', {
     id: {
@@ -9,22 +8,13 @@ const LiveComment = sequelize.define('LiveComment', {
         defaultValue: DataTypes.UUIDV4,
         primaryKey: true
     },
-    userId: {
-        type: DataTypes.UUID,
-        allowNull: false
-    },
-    streamId: {
-        type: DataTypes.UUID,
-        allowNull: false
-    },
     comment: {
-        type: DataTypes.TEXT,
+        type: DataTypes.STRING,
         allowNull: false
     }
 });
 
-// Define relationships
-LiveComment.belongsTo(User, { foreignKey: 'userId' });
-LiveComment.belongsTo(LiveStream, { foreignKey: 'streamId' });
+// Relationships
+LiveComment.belongsTo(User, { foreignKey: 'userId', onDelete: "CASCADE" });
 
 export default LiveComment;

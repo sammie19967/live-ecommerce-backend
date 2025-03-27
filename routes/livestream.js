@@ -3,6 +3,16 @@ import { authenticate, isSeller } from '../middleware/authMiddleware.js';
 import LiveStream from '../models/LiveStream.js';
 
 const router = express.Router();
+// Add this to your backend (livestreamRoutes.js)
+router.get('/', async (req, res) => {
+    try {
+        const liveStreams = await LiveStream.findAll({ where: { isActive: true } });
+        res.json(liveStreams);
+    } catch (error) {
+        res.status(500).json({ message: 'Server error', error: error.message });
+    }
+});
+
 
 // @route   POST /api/livestream/start
 // @desc    Sellers can start a live stream
