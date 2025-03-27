@@ -1,6 +1,7 @@
 import { DataTypes } from 'sequelize';
 import sequelize from '../config/db.js';
 import User from './User.js';
+import LiveStream from './LiveStream.js';
 
 const LiveView = sequelize.define('LiveView', {
     id: {
@@ -11,10 +12,14 @@ const LiveView = sequelize.define('LiveView', {
     userId: {
         type: DataTypes.UUID,
         allowNull: false
+    },
+    streamId: {
+        type: DataTypes.UUID,
+        allowNull: false
     }
 });
 
-// Relationships
-LiveView.belongsTo(User, { foreignKey: 'userId', onDelete: "CASCADE" });
+LiveView.belongsTo(User, { foreignKey: 'userId', onDelete: 'CASCADE' });
+LiveView.belongsTo(LiveStream, { foreignKey: 'streamId', onDelete: 'CASCADE' });
 
 export default LiveView;

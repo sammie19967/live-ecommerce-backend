@@ -1,3 +1,4 @@
+// models/LiveStream.js
 import { DataTypes } from 'sequelize';
 import sequelize from '../config/db.js';
 import User from './User.js';
@@ -8,14 +9,14 @@ const LiveStream = sequelize.define('LiveStream', {
         defaultValue: DataTypes.UUIDV4,
         primaryKey: true
     },
+    userId: {
+        type: DataTypes.UUID,
+        allowNull: false,
+        unique: true
+    },
     title: {
         type: DataTypes.STRING,
         allowNull: false
-    },
-    streamKey: {
-        type: DataTypes.STRING,
-        allowNull: false,
-        unique: true
     },
     isActive: {
         type: DataTypes.BOOLEAN,
@@ -23,7 +24,6 @@ const LiveStream = sequelize.define('LiveStream', {
     }
 });
 
-// Relationship: A User can have only ONE LiveStream
-LiveStream.belongsTo(User, { foreignKey: 'userId', unique: true, onDelete: "CASCADE" });
+LiveStream.belongsTo(User, { foreignKey: 'userId' });
 
 export default LiveStream;
