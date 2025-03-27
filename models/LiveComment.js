@@ -15,7 +15,7 @@ const LiveComment = sequelize.define('LiveComment', {
     },
     streamId: {
         type: DataTypes.UUID,
-        allowNull: false
+        allowNull: true
     },
     comment: {
         type: DataTypes.TEXT,
