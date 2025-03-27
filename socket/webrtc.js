@@ -3,86 +3,130 @@ import LiveComment from '../models/LiveComment.js';
 import LiveLike from '../models/LiveLike.js';
 import LiveView from '../models/LiveView.js';
 
-const liveStreams = new Map();
+const liveStreams = new Map(); // Store active streams by userId
 
 export const setupWebRTC = (io) => {
     io.on('connection', (socket) => {
         console.log('🔌 User connected:', socket.id);
-        let currentStream = null;
+        let currentUserStream = null;
 
-        socket.on('startStream', async ({ hostId, streamId }) => {
-            await LiveStream.update({ isActive: true }, { where: { id: streamId } });
-            liveStreams.set(streamId, {
-                hostId,
-                viewers: new Map(), // Store viewers as { userId: socketId }
-                likes: 0,
-                likeUsers: new Set(),
-                comments: [],
-                startTime: new Date(),
-                status: 'live'
-            });
-            socket.join(streamId);
-            currentStream = streamId;
-            io.emit('streamListUpdated', Array.from(liveStreams.keys()));
-            console.log(`🎥 Host ${hostId} started stream ${streamId}`);
+        socket.on('startStream', async ({ userId }) => {
+            console.log('📡 startStream event received:', { userId });
+
+            if (!userId) {
+                console.error('❌ userId is missing in startStream');
+                return socket.emit('error', 'userId is required');
+            }
+
+            try {
+                // Check if user already has an active stream
+                const existingStream = await LiveStream.findOne({ where: { userId, isActive: true } });
+                if (existingStream) {
+                    return socket.emit('error', '❌ You are already streaming.');
+                }
+
+                // Start a new stream
+                await LiveStream.upsert({ userId, isActive: true });
+                liveStreams.set(userId, {
+                    hostId: userId,
+                    viewers: new Map(),
+                    likes: 0,
+                    likeUsers: new Set(),
+                    comments: [],
+                    startTime: new Date(),
+                    status: 'live'
+                });
+
+                socket.join(userId);
+                currentUserStream = userId;
+                io.emit('streamListUpdated', Array.from(liveStreams.keys()));
+                console.log(`🎥 Host ${userId} started a live stream`);
+            } catch (error) {
+                console.error('🔥 Error in startStream:', error);
+                socket.emit('error', 'Failed to start stream');
+            }
         });
 
-        socket.on('joinStream', async ({ streamId, userId }) => {
-            // Check if stream exists
-            const stream = await LiveStream.findByPk(streamId);
+        socket.on('joinStream', async ({ userId }) => {
+            console.log('👥 joinStream event received:', { userId });
+
+            if (!userId) {
+                console.error('❌ userId is missing in joinStream');
+                return socket.emit('error', 'userId is required');
+            }
+
+            const stream = await LiveStream.findOne({ where: { userId, isActive: true } });
             if (!stream) {
-                console.error(`❌ Stream ${streamId} not found!`);
-                return socket.emit('error', 'Stream does not exist');
+                return socket.emit('error', 'Stream is not active.');
             }
-        
-            // Check if stream is stored in memory
-            let liveStream = liveStreams.get(streamId);
+
+            let liveStream = liveStreams.get(userId);
             if (!liveStream) {
-                console.warn(`⚠️ Stream ${streamId} is not active`);
-                return socket.emit('error', 'Stream is not active');
+                return socket.emit('error', 'Stream is not active.');
             }
-        
+
             if (!liveStream.viewers.has(userId)) {
                 liveStream.viewers.set(userId, socket.id);
-                await LiveView.findOrCreate({ where: { streamId, userId } });
+                await LiveView.findOrCreate({ where: { userId } });
             }
-        
-            socket.join(streamId);
-            io.to(streamId).emit('streamUpdate', {
+
+            socket.join(userId);
+            io.to(userId).emit('streamUpdate', {
                 viewers: liveStream.viewers.size,
                 likes: liveStream.likes,
                 comments: liveStream.comments.slice(-50)
             });
-        
-            console.log(`👀 Viewer ${userId} joined stream ${streamId}`);
+
+            console.log(`👀 Viewer ${userId} joined stream`);
         });
-        
-        socket.on('sendComment', async ({ streamId, userId, comment }) => {
-            const stream = liveStreams.get(streamId);
+
+        socket.on('sendComment', async ({ userId, comment }) => {
+            console.log('💬 sendComment event received:', { userId, comment });
+
+            if (!userId || !comment) {
+                console.error('❌ Missing userId or comment in sendComment');
+                return socket.emit('error', 'userId and comment are required');
+            }
+
+            const stream = liveStreams.get(userId);
             if (stream) {
-                const newComment = await LiveComment.create({ streamId, userId, comment });
+                const newComment = await LiveComment.create({ userId, comment });
                 stream.comments.push(newComment);
-                io.to(streamId).emit('receiveComment', newComment);
+                io.to(userId).emit('receiveComment', newComment);
             }
         });
 
-        socket.on('sendLike', async ({ streamId, userId }) => {
-            const stream = liveStreams.get(streamId);
+        socket.on('sendLike', async ({ userId }) => {
+            console.log('❤️ sendLike event received:', { userId });
+
+            if (!userId) {
+                console.error('❌ userId is missing in sendLike');
+                return socket.emit('error', 'userId is required');
+            }
+
+            const stream = liveStreams.get(userId);
             if (stream) {
-                const [like, created] = await LiveLike.findOrCreate({ where: { streamId, userId } });
+                const [like, created] = await LiveLike.findOrCreate({ where: { userId } });
                 if (created) {
                     stream.likes += 1;
                     stream.likeUsers.add(userId);
-                    io.to(streamId).emit('updateLikes', stream.likes);
+                    io.to(userId).emit('updateLikes', stream.likes);
                 }
             }
         });
 
-        socket.on('getStreamInfo', async ({ streamId }, callback) => {
-            const stream = liveStreams.get(streamId);
+        socket.on('getStreamInfo', async ({ userId }, callback) => {
+            console.log('📊 getStreamInfo event received:', { userId });
+
+            if (!userId) {
+                console.error('❌ userId is missing in getStreamInfo');
+                return socket.emit('error', 'userId is required');
+            }
+
+            const stream = liveStreams.get(userId);
             if (stream) {
-                const comments = await LiveComment.findAll({ where: { streamId }, limit: 50, order: [['createdAt', 'DESC']] });
-                const likes = await LiveLike.count({ where: { streamId } });
+                const comments = await LiveComment.findAll({ where: { userId }, limit: 50, order: [['createdAt', 'DESC']] });
+                const likes = await LiveLike.count({ where: { userId } });
                 const viewers = stream.viewers.size;
                 callback({
                     viewers,
@@ -93,39 +137,46 @@ export const setupWebRTC = (io) => {
             }
         });
 
-        socket.on('endStream', async ({ streamId }) => {
-            if (liveStreams.has(streamId)) {
-                await LiveStream.update({ isActive: false }, { where: { id: streamId } });
-                io.to(streamId).emit('streamEnded');
-                liveStreams.delete(streamId);
+        socket.on('endStream', async ({ userId }) => {
+            console.log('🛑 endStream event received:', { userId });
+
+            if (!userId) {
+                console.error('❌ userId is missing in endStream');
+                return socket.emit('error', 'userId is required');
+            }
+
+            if (liveStreams.has(userId)) {
+                await LiveStream.update({ isActive: false }, { where: { userId } });
+                io.to(userId).emit('streamEnded');
+                liveStreams.delete(userId);
                 io.emit('streamListUpdated', Array.from(liveStreams.keys()));
-                console.log(`⏹️ Stream ${streamId} ended`);
+                console.log(`⏹️ Stream for ${userId} ended`);
             }
         });
 
         socket.on('disconnect', async () => {
-            if (currentStream) {
-                const stream = liveStreams.get(currentStream);
+            console.log('❌ User disconnected:', socket.id);
+
+            if (currentUserStream) {
+                const stream = liveStreams.get(currentUserStream);
                 if (stream) {
                     if (stream.hostId === socket.id) {
-                        await LiveStream.update({ isActive: false }, { where: { id: currentStream } });
-                        io.to(currentStream).emit('streamEnded');
-                        liveStreams.delete(currentStream);
+                        await LiveStream.update({ isActive: false }, { where: { userId: currentUserStream } });
+                        io.to(currentUserStream).emit('streamEnded');
+                        liveStreams.delete(currentUserStream);
                         io.emit('streamListUpdated', Array.from(liveStreams.keys()));
-                        console.log(`⏹️ Stream ${currentStream} ended due to host disconnect`);
+                        console.log(`⏹️ Stream for ${currentUserStream} ended due to host disconnect`);
                     } else {
-                        // Remove viewer by matching their socketId
-                        for (const [userId, viewerSocketId] of stream.viewers.entries()) {
+                        for (const [viewerUserId, viewerSocketId] of stream.viewers.entries()) {
                             if (viewerSocketId === socket.id) {
-                                stream.viewers.delete(userId);
+                                stream.viewers.delete(viewerUserId);
                                 break;
                             }
                         }
-                        io.to(currentStream).emit('viewerLeft', { viewers: stream.viewers.size });
+                        io.to(currentUserStream).emit('viewerLeft', { viewers: stream.viewers.size });
                     }
                 }
             }
-            console.log('❌ User disconnected:', socket.id);
         });
     });
 };
