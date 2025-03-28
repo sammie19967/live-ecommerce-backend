@@ -59,7 +59,7 @@ app.get('/', (req, res) => {
 
 // Sync Database
 (async () => {
-    await sequelize.sync({ forc: true });
+    await sequelize.sync({ force: true });
     console.log("✅ Database Synced!");
 })();
 

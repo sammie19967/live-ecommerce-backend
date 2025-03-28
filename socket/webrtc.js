@@ -4,36 +4,70 @@ import LiveLike from '../models/LiveLike.js';
 import LiveComment from '../models/LiveComment.js';
 import LiveView from '../models/LiveView.js';
 
-const activeStreams = {}; // Store active livestreams { userId: streamData }
-
 export const setupWebRTC = (io) => {
     io.on('connection', (socket) => {
         console.log(`🔌 User connected: ${socket.id}`);
 
-        // Send active streams list when user connects
-        socket.emit('activeStreams', Object.values(activeStreams));
+        // Fetch and emit the list of active streams when a user connects
+        const emitActiveStreams = async () => {
+            try {
+                const activeStreams = await LiveStream.findAll({ where: { isActive: true } });
+                io.emit('activeStreams', activeStreams); // Emit to all connected clients
+            } catch (error) {
+                console.error('Error fetching active streams:', error);
+            }
+        };
+
+        // Emit the current list of active streams to the newly connected client
+        emitActiveStreams();
 
         // Host starts a livestream
         socket.on('startStream', async ({ userId, title }) => {
             try {
-                const existingStream = await LiveStream.findOne({ where: { userId } });
+                // Check if the user already has an active stream
+                const existingStream = await LiveStream.findOne({ where: { userId, isActive: true } });
                 if (existingStream) {
-                    return socket.emit('streamError', 'You already have an active stream.');
+                    socket.emit('error', 'You already have an active stream.');
+                    return;
                 }
-                
-                const newStream = await LiveStream.create({ userId, title, isActive: true });
-                activeStreams[userId] = newStream;
-                io.emit('newLiveStream', newStream); // Notify all users
-                console.log(`🎥 Live stream started by ${userId}`);
+
+                // Create a new live stream in the database
+                const newStream = await LiveStream.create({ userId, title });
+                console.log(`🎥 New live stream started by user ${userId}: ${title}`);
+
+                // Emit the updated list of active streams
+                emitActiveStreams();
             } catch (error) {
-                console.error('❌ Error starting livestream:', error);
+                console.error('Error starting live stream:', error);
+                socket.emit('error', 'Failed to start live stream.');
             }
         });
 
         // User joins a livestream
-        socket.on('joinStream', ({ userId, streamId }) => {
-            socket.join(streamId);
-            console.log(`👤 User ${userId} joined stream ${streamId}`);
+        socket.on('joinStream', async ({ userId, streamId }) => {
+            try {
+                const stream = await LiveStream.findByPk(streamId);
+                if (!stream || !stream.isActive) {
+                    socket.emit('error', 'Stream not found or inactive.');
+                    return;
+                }
+
+                socket.join(streamId); // Join the stream's room
+                console.log(`👤 User ${userId} joined stream ${streamId}`);
+
+                // Add a view to the stream
+                await LiveView.create({ userId, streamId });
+                io.to(streamId).emit('updateLiveStream', { type: 'view', userId });
+            } catch (error) {
+                console.error('Error joining stream:', error);
+                socket.emit('error', 'Failed to join stream.');
+            }
+        });
+
+        // User leaves a livestream
+        socket.on('leaveStream', ({ userId, streamId }) => {
+            socket.leave(streamId);
+            console.log(`👤 User ${userId} left stream ${streamId}`);
         });
 
         // Handle Likes in real-time
@@ -44,6 +78,7 @@ export const setupWebRTC = (io) => {
                 console.log(`❤️ Like added by ${userId} on stream ${streamId}`);
             } catch (error) {
                 console.error('❌ Error liking stream:', error);
+                socket.emit('error', 'Failed to like stream.');
             }
         });
 
@@ -55,35 +90,37 @@ export const setupWebRTC = (io) => {
                 console.log(`💬 Comment added by ${userId} on stream ${streamId}`);
             } catch (error) {
                 console.error('❌ Error adding comment:', error);
+                socket.emit('error', 'Failed to add comment.');
             }
         });
 
-        // Handle Views in real-time
-        socket.on('viewStream', async ({ userId, streamId }) => {
-            try {
-                const view = await LiveView.create({ userId, streamId });
-                io.to(streamId).emit('updateLiveStream', { type: 'view', userId });
-                console.log(`👀 View added by ${userId} on stream ${streamId}`);
-            } catch (error) {
-                console.error('❌ Error adding view:', error);
-            }
-        });
-
-        // Host ends the livestream
+        // Host ends a livestream
         socket.on('endStream', async ({ userId }) => {
             try {
-                await LiveStream.update({ isActive: false }, { where: { userId } });
-                delete activeStreams[userId];
-                io.emit('removeLiveStream', userId);
-                console.log(`🛑 Live stream ended by ${userId}`);
+                // Mark the live stream as inactive in the database
+                const result = await LiveStream.update(
+                    { isActive: false },
+                    { where: { userId, isActive: true } }
+                );
+
+                if (result[0] === 0) {
+                    socket.emit('error', 'No active stream found to end.');
+                    return;
+                }
+
+                console.log(`🛑 Live stream ended by user ${userId}`);
+
+                // Emit the updated list of active streams
+                emitActiveStreams();
             } catch (error) {
-                console.error('❌ Error ending livestream:', error);
+                console.error('Error ending live stream:', error);
+                socket.emit('error', 'Failed to end live stream.');
             }
         });
 
-        // User disconnects
+        // Handle client disconnection
         socket.on('disconnect', () => {
-            console.log(`❌ User disconnected: ${socket.id}`);
+            console.log(`❌ Client disconnected: ${socket.id}`);
         });
     });
 };
