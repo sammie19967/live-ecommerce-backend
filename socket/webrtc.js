@@ -57,7 +57,10 @@ export const setupWebRTC = (io) => {
 
                 // Add a view to the stream
                 await LiveView.create({ userId, streamId });
-                io.to(streamId).emit('updateLiveStream', { type: 'view', userId });
+
+                // Emit updated view count to all clients in the stream
+                const viewCount = await LiveView.count({ where: { streamId } });
+                io.to(streamId).emit('updateLiveStream', { type: 'view', streamId, viewCount });
             } catch (error) {
                 console.error('Error joining stream:', error);
                 socket.emit('error', 'Failed to join stream.');
@@ -65,16 +68,23 @@ export const setupWebRTC = (io) => {
         });
 
         // User leaves a livestream
-        socket.on('leaveStream', ({ userId, streamId }) => {
+        socket.on('leaveStream', async ({ userId, streamId }) => {
             socket.leave(streamId);
             console.log(`👤 User ${userId} left stream ${streamId}`);
+
+            // Emit updated view count to all clients in the stream
+            const viewCount = await LiveView.count({ where: { streamId } });
+            io.to(streamId).emit('updateLiveStream', { type: 'view', streamId, viewCount });
         });
 
         // Handle Likes in real-time
         socket.on('likeStream', async ({ userId, streamId }) => {
             try {
-                const like = await LiveLike.create({ userId, streamId });
-                io.to(streamId).emit('updateLiveStream', { type: 'like', userId });
+                await LiveLike.create({ userId, streamId });
+
+                // Emit updated like count to all clients in the stream
+                const likeCount = await LiveLike.count({ where: { streamId } });
+                io.to(streamId).emit('updateLiveStream', { type: 'like', streamId, likeCount });
                 console.log(`❤️ Like added by ${userId} on stream ${streamId}`);
             } catch (error) {
                 console.error('❌ Error liking stream:', error);
